@@ -1,0 +1,10 @@
+.bloop/
+.bsp/
+.mdoc/
+.metals/
+.sbt-shuwari/
+.vscode/
+metals.sbt
+target/
+
+.core-collection/
