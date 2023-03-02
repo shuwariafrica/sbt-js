@@ -77,7 +77,8 @@ def publishSettings = publishCredentials +: pgpSettings ++: List(
     )
   ),
   pomIncludeRepository := (_ => false),
-  publishMavenStyle := true
+  publishMavenStyle := true,
+  sonatypeCredentialHost := "s01.oss.sonatype.org",
 )
 
 def pgpSettings = List(
