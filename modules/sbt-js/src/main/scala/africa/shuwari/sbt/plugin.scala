@@ -49,25 +49,25 @@ object JSBundlerPlugin extends AutoPlugin {
       "Process and/or package assembled project with external tools."
     )
 
-    /** Alias for "[[js]] / [[sbt.Keys.target]]" */
+    /** Alias for "[[js]] / `sbt.Keys.target`" */
     def jsTarget = js / target
 
-    /** Alias for "[[jsPrepare]] / [[sbt.Keys.target]]" */
+    /** Alias for "[[jsPrepare]] / `sbt.Keys.target`" */
     def jsPrepareTarget = jsPrepare / target
 
-    /** Alias for "[[jsPrepare]] / [[sbt.nio.Keys.fileInputIncludeFilter]]" */
+    /** Alias for "[[jsPrepare]] / `sbt.nio.Keys.fileInputIncludeFilter`" */
     def jsPrepareIncludeFilter = jsPrepare / fileInputIncludeFilter
 
-    /** Alias for "[[jsPrepare]] / [[sbt.nio.Keys.fileInputExcludeFilter]]" */
+    /** Alias for "[[jsPrepare]] / `sbt.nio.Keys.fileInputExcludeFilter`" */
     def jsPrepareExcludeFilter = jsPrepare / fileInputExcludeFilter
 
-    /** Alias for "[[js]] / [[sbt.Keys.sourceDirectory]]" */
+    /** Alias for "[[js]] / `sbt.Keys.sourceDirectory" */
     def jsSourceDirectory = js / sourceDirectory
 
-    /** Alias for "[[js]] / [[sbt.Keys.sourceDirectories]]" */
+    /** Alias for "[[js]] / `sbt.Keys.sourceDirectories`" */
     def jsSourceDirectories = js / sourceDirectories
 
-    /** Alias for "[[jsPrepare]] / [[sbt.nio.Keys.fileInputs]]" */
+    /** Alias for "[[jsPrepare]] / `sbt.nio.Keys.fileInputs`" */
     def jsPrepareFileInputs = jsPrepare / fileInputs
 
   }
