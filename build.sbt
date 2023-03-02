@@ -1,30 +1,17 @@
-/****************************************************************
- * Copyright © Shuwari Africa Ltd. All rights reserved.         *
- *                                                              *
- * Shuwari Africa Ltd licenses this file to you under the terms *
- * of the Apache License Version 2.0 (the "License"); you may   *
- * not use this file except in compliance with the License. You *
- * may obtain a copy of the License at:                         *
- *                                                              *
- *     https://www.apache.org/licenses/LICENSE-2.0              *
- *                                                              *
- * Unless required by applicable law or agreed to in writing,   *
- * software distributed under the License is distributed on an  *
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, *
- * either express or implied. See the License for the specific  *
- * language governing permissions and limitations under the     *
- * License.                                                     *
- ****************************************************************/
-
 name := "sbt-js-root"
 
 organization := "africa.shuwari.sbt"
 shuwariProject
 apacheLicensed
 startYear := Some(2023)
+scmInfo := ScmInfo(
+  url("https://github.com/shuwariafrica/sbt-js"),
+  "scm:git:https://github.com/shuwariafrica/sbt-js.git",
+  Some("scm:git:git@github.com:shuwariafrica/sbt-js.git")
+).some
 
 def commonSettings = List(publishMavenStyle := true)
-  
+
 lazy val `sbt-js` =
   project
     .in(file("modules/sbt-js"))
