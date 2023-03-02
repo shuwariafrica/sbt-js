@@ -36,11 +36,6 @@ lazy val `sbt-vite` =
     .in(file("modules/sbt-vite"))
     .enablePlugins(SbtPlugin)
     .dependsOn(`sbt-js`)
-    .settings(
-      Keys.run := {
-        (Compile / scalacOptions).value.foreach(println)        
-      }
-    )
 
 lazy val `sbt-js-documentation` =
   project
