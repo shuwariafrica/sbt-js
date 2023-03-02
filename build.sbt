@@ -10,6 +10,8 @@ scmInfo := ScmInfo(
   Some("scm:git:git@github.com:shuwariafrica/sbt-js.git")
 ).some
 
+ThisBuild / sonatypeCredentialHost := "s01.oss.sonatype.org"
+
 def commonSettings = List(publishMavenStyle := true)
 
 lazy val `sbt-js` =
