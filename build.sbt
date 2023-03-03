@@ -1,15 +1,20 @@
-name := "sbt-js-root"
-organization := "africa.shuwari.sbt"
-shuwariProject
-apacheLicensed
-startYear := Some(2023)
-
-scmInfo := ScmInfo(
-  url("https://github.com/shuwariafrica/sbt-js"),
-  "scm:git:https://github.com/shuwariafrica/sbt-js.git",
-  Some("scm:git:git@github.com:shuwariafrica/sbt-js.git")
-).some
-
+inThisBuild(
+  List(
+    organization := "africa.shuwari.sbt",
+    description := "Collection of sbt plugins for easy initialisation of uniform organisation wide default project settings.",
+    homepage := Some(url("https://github.com/unganisha/sbt-shuwari")),
+    version := versionSetting.value,
+    dynver := versionSetting.toTaskable.toTask.value,
+    sonatypeCredentialHost := "s01.oss.sonatype.org",
+    publishCredentials,
+    scmInfo := ScmInfo(
+      url("https://github.com/shuwariafrica/sbt-js"),
+      "scm:git:https://github.com/shuwariafrica/sbt-js.git",
+      Some("scm:git:git@github.com:shuwariafrica/sbt-js.git")
+    ).some,
+    startYear := Some(2023)
+  )
+)
 
 def commonSettings = List(publishMavenStyle := true)
 
@@ -46,14 +51,8 @@ lazy val `sbt-js-root` = project
   .enablePlugins(SbtPlugin)
   .aggregate(`sbt-js`, `sbt-vite`)
   .notPublished
-
-inThisBuild(
-  publishCredentials ++ List(
-    version := versionSetting.value,
-    dynver := versionSetting.toTaskable.toTask.value,
-    sonatypeCredentialHost := "s01.oss.sonatype.org",
-    sonatypeProfileName := "africa.shuwari"
-  ))
+  .shuwariProject
+  .apacheLicensed
 
 def publishCredentials = credentials := List(
   Credentials(
@@ -73,22 +72,13 @@ def publishSettings = publishCredentials +: pgpSettings ++: List(
     "Specification-Version" -> version.value,
     "Specification-Vendor" -> organizationName.value,
     "Implementation-Title" -> name.value,
-    "Implementation-Version" -> version.value, // FIXME
+    "Implementation-Version" -> implementationVersionSetting.value,
     "Implementation-Vendor-Id" -> organization.value,
     "Implementation-Vendor" -> organizationName.value
   ),
   publishTo := sonatypePublishToBundle.value,
-  developers := List(
-    Developer(
-      id = "shuwaridev",
-      name = "Shuwari Developer Team",
-      email = "dev at shuwari com",
-      url = url("https://shuwari.com/dev")
-    )
-  ),
   pomIncludeRepository := (_ => false),
-  publishMavenStyle := true,
-  sonatypeCredentialHost := "s01.oss.sonatype.org"
+  publishMavenStyle := true
 )
 
 def pgpSettings = List(
