@@ -1,9 +1,9 @@
 name := "sbt-js-root"
-
 organization := "africa.shuwari.sbt"
 shuwariProject
 apacheLicensed
 startYear := Some(2023)
+
 scmInfo := ScmInfo(
   url("https://github.com/shuwariafrica/sbt-js"),
   "scm:git:https://github.com/shuwariafrica/sbt-js.git",
@@ -32,6 +32,7 @@ lazy val `sbt-js-documentation` =
   project
     .in(file(".sbt-js-doc"))
     .dependsOn(`sbt-js`)
+    .notPublished
     .enablePlugins(MdocPlugin)
     .settings(
       mdocIn := (LocalRootProject / baseDirectory).value / "modules" / "documentation",
@@ -46,6 +47,12 @@ lazy val `sbt-js-root` = project
   .enablePlugins(SbtPlugin)
   .aggregate(`sbt-js`, `sbt-vite`)
   .notPublished
+
+inThisBuild(
+  List(
+    version := versionSetting.value,
+    dynver := versionSetting.toTaskable.toTask.value
+  ))
 
 def publishCredentials = credentials := List(
   Credentials(
@@ -80,7 +87,7 @@ def publishSettings = publishCredentials +: pgpSettings ++: List(
   ),
   pomIncludeRepository := (_ => false),
   publishMavenStyle := true,
-  sonatypeCredentialHost := "s01.oss.sonatype.org",
+  sonatypeCredentialHost := "s01.oss.sonatype.org"
 )
 
 def pgpSettings = List(
@@ -90,3 +97,30 @@ def pgpSettings = List(
       .map(_.toCharArray),
   usePgpKeyHex(System.getenv("SIGNING_KEY_ID"))
 )
+
+def baseVersionSetting(appendMetadata: Boolean): Def.Initialize[String] = {
+  def baseVersionFormatter(in: sbtdynver.GitDescribeOutput) = {
+    def meta =
+      if (appendMetadata) s"+${in.commitSuffix.distance}.${in.commitSuffix.sha}"
+      else ""
+
+    if (!in.isSnapshot()) in.ref.dropPrefix
+    else {
+      val parts = {
+        def current = in.ref.dropPrefix.split("\\.").map(_.toInt)
+        current.updated(current.length - 1, current.last + 1)
+      }
+      s"${parts.mkString(".")}-SNAPSHOT$meta"
+    }
+  }
+  Def.setting(
+    dynverGitDescribeOutput.value.mkVersion(
+      baseVersionFormatter,
+      "SNAPHOT"
+    )
+  )
+}
+
+def versionSetting = baseVersionSetting(appendMetadata = false)
+
+def implementationVersionSetting = baseVersionSetting(appendMetadata = true)
