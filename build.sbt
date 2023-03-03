@@ -51,7 +51,8 @@ inThisBuild(
   publishCredentials ++ List(
     version := versionSetting.value,
     dynver := versionSetting.toTaskable.toTask.value,
-    sonatypeCredentialHost := "s01.oss.sonatype.org"
+    sonatypeCredentialHost := "s01.oss.sonatype.org",
+    sonatypeProfileName := "africa.shuwari"
   ))
 
 def publishCredentials = credentials := List(
