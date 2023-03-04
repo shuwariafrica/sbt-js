@@ -14,7 +14,7 @@ __________________________________
 ### sbt-js-core
 
 ```scala
-addSbtPlugin("africa.shuwari.sbt" % "sbt-js" % "0.1.0-SNAPSHOT")
+addSbtPlugin("africa.shuwari.sbt" % "sbt-js" % "0.11.0")
 ```
 
 Preconfigures projects with opinionated project defaults for ScalaJS libraries and/or applications. Provides a foundation for incremental assembly using external Javascript ecosystem
@@ -38,7 +38,7 @@ __________________________________
 ### sbt-vite
 
 ```scala
-addSbtPlugin("africa.shuwari.sbt" % "sbt-vite" % "0.1.0-SNAPSHOT")
+addSbtPlugin("africa.shuwari.sbt" % "sbt-vite" % "0.11.0")
 ```
 
 |Depends On:                                                                                   |
