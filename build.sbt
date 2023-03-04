@@ -2,7 +2,7 @@ inThisBuild(
   List(
     organization := "africa.shuwari.sbt",
     description := "Collection of sbt plugins for easy initialisation of uniform organisation wide default project settings.",
-    homepage := Some(url("https://github.com/unganisha/sbt-shuwari")),
+    homepage := Some(url("https://github.com/shuwarifrica/sbt-js")),
     version := versionSetting.value,
     dynver := versionSetting.toTaskable.toTask.value,
     sonatypeCredentialHost := "s01.oss.sonatype.org",
@@ -50,6 +50,7 @@ lazy val `sbt-js-root` = project
   .in(file("."))
   .enablePlugins(SbtPlugin)
   .aggregate(`sbt-js`, `sbt-vite`)
+  .settings(publishSettings)
   .notPublished
   .shuwariProject
   .apacheLicensed
@@ -78,7 +79,8 @@ def publishSettings = publishCredentials +: pgpSettings ++: List(
   ),
   publishTo := sonatypePublishToBundle.value,
   pomIncludeRepository := (_ => false),
-  publishMavenStyle := true
+  publishMavenStyle := true,
+  sonatypeProfileName := "africa.shuwari"
 )
 
 def pgpSettings = List(
