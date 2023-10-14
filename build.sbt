@@ -67,7 +67,7 @@ lazy val `sbt-js-root` = project
   .notPublished
   .shuwariProject
   .apacheLicensed
-
+  .disablePlugins(Sonatype)
 def publishCredentials = credentials := List(
   Credentials(
     "Sonatype Nexus Repository Manager",
