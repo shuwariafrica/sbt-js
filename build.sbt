@@ -67,7 +67,7 @@ lazy val `sbt-js-root` = project
   .notPublished
   .shuwariProject
   .apacheLicensed
-  .disablePlugins(Sonatype)
+  .settings(sonatypeProfile)
 def publishCredentials = credentials := List(
   Credentials(
     "Sonatype Nexus Repository Manager",
@@ -93,8 +93,10 @@ def publishSettings = publishCredentials +: pgpSettings ++: List(
   publishTo := sonatypePublishToBundle.value,
   pomIncludeRepository := (_ => false),
   publishMavenStyle := true,
-  sonatypeProfileName := "africa.shuwari"
+  sonatypeProfile
 )
+
+def sonatypeProfile = sonatypeProfileName := "africa.shuwari"
 
 def pgpSettings = List(
   PgpKeys.pgpSelectPassphrase :=
