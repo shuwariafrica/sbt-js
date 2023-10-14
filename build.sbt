@@ -1,5 +1,3 @@
-import sbt.util
-
 inThisBuild(
   List(
     organization := "africa.shuwari.sbt",
@@ -16,35 +14,24 @@ inThisBuild(
     ).some,
     startYear := Some(2023),
     semanticdbEnabled := true,
-    semanticdbVersion := scalafixSemanticdb.revision,
+    semanticdbVersion := scalafixSemanticdb.revision
   )
-)
-
-def commonSettings = List(publishMavenStyle := true)
-
-def scriptedSettings = List(
-  scriptedLaunchOpts := {
-    scriptedLaunchOpts.value ++
-      Seq("-Dplugin.version=" + version.value)
-  },
-  scriptedBufferLog := false
 )
 
 lazy val `sbt-js` =
   project
     .in(file("modules/sbt-js"))
     .enablePlugins(SbtPlugin)
-    .settings(publishSettings *)
-    .settings(scriptedSettings *)
+    .settings(publishSettings*)
+    .settings(scriptedSettings*)
     .settings(addSbtPlugin("org.scala-js" % "sbt-scalajs" % "1.14.0"))
 
 lazy val `sbt-vite` =
   project
     .in(file("modules/sbt-vite"))
     .enablePlugins(SbtPlugin)
-    .settings(publishSettings *)
+    .settings(publishSettings*)
     .dependsOn(`sbt-js`)
-    .settings(libraryDependencies += "com.zaxxer" % "nuprocess" % "2.0.6")
 
 lazy val `sbt-js-documentation` =
   project
@@ -68,6 +55,7 @@ lazy val `sbt-js-root` = project
   .shuwariProject
   .apacheLicensed
   .settings(sonatypeProfile)
+
 def publishCredentials = credentials := List(
   Credentials(
     "Sonatype Nexus Repository Manager",
@@ -132,3 +120,11 @@ def baseVersionSetting(appendMetadata: Boolean): Def.Initialize[String] = {
 def versionSetting = baseVersionSetting(appendMetadata = false)
 
 def implementationVersionSetting = baseVersionSetting(appendMetadata = true)
+
+def scriptedSettings: List[Setting[?]] = List(
+  scriptedLaunchOpts := {
+    scriptedLaunchOpts.value ++
+      Seq("-Dplugin.version=" + version.value)
+  },
+  scriptedBufferLog := false
+)
