@@ -1,10 +1,14 @@
 .bloop/
 .bsp/
+.idea/
 .mdoc/
 .metals/
 .sbt-shuwari/
 .vscode/
 metals.sbt
+node_modules/
+null/
+PowerShell*/
 target/
 
 .core-collection/

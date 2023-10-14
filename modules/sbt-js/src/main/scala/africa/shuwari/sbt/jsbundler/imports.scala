@@ -15,52 +15,24 @@
  * language governing permissions and limitations under the      *
  * License.                                                      *
  *****************************************************************/
-package africa.shuwari.sbt.vite
+package africa.shuwari.sbt.jsbundler
 
-import sbt.util.Level
+import sbt.*
 
-import java.io.File
+object Imports {
+  val jsPrepare =
+    TaskKey[File](
+      "jsPrepare",
+      "Compile, link, and prepare project for packaging and/or processing with external tools."
+    )
 
-sealed trait ViteConfiguration {
+  val jsFullLink =
+    SettingKey[Boolean](
+      "jsFullLink",
+      "Defines whether \"fullLink\" or \"fastLink\" ScalaJS Linker output is used."
+    )
 
-  /** Public base path */
-  def base: Option[String]
-
-  /** Use specified config file */
-  def config: Option[File]
-
-  /** Force the optimizer to ignore the cache and re-bundle. */
-  def force: Option[Boolean]
-
-  /** Use specified config file */
-  def logLevel: Level.Value
-
-  /** Use specified config file */
-  def mode: ViteImport.Mode
-
+  val js = taskKey[File](
+    "Process and/or package assembled project with external tools."
+  )
 }
-
-final case class BuildConfiguration(
-  base: Option[String],
-  config: Option[File],
-  force: Option[Boolean],
-  logLevel: Level.Value,
-  mode: ViteImport.Mode,
-  target: Option[String],
-  assetsDir: Option[String],
-  assetsInlineLimit: Option[Int],
-  ssr: Option[String],
-  sourcemap: Option[Boolean],
-  minify: Option[ViteImport.Minifier],
-  manifest: Option[String],
-  ssrManifest: Option[String],
-  emptyOutDir: Option[Boolean]
-) extends ViteConfiguration
-
-final case class RunConfiguration(
-  base: Option[String],
-  config: Option[File],
-  force: Option[Boolean],
-  logLevel: Level.Value,
-  mode: ViteImport.Mode
-) extends ViteConfiguration
