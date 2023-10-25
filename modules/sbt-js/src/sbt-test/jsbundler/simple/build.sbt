@@ -1,5 +1,3 @@
-
-
 lazy val `sbt-js-simple-test` = project
   .in(file("."))
   .enablePlugins(ScalaJSPlugin)
