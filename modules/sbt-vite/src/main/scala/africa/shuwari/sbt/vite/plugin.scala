@@ -8,8 +8,7 @@
   */
 package africa.shuwari.sbt.vite
 
-import africa.shuwari.sbt.JSBundlerPlugin
-import africa.shuwari.sbt.vite
+import africa.shuwari.sbt.{JSBundlerPlugin, vite}
 import sbt.*
 
 object VitePlugin extends AutoPlugin {
@@ -18,8 +17,9 @@ object VitePlugin extends AutoPlugin {
   }
   override def requires: Plugins = JSBundlerPlugin
 
-  override def trigger = allRequirements
+  override def trigger = noTrigger
 
   override def projectSettings: Seq[Setting[?]] = vite.DefaultSettings.projectSettings
 
+//  override def globalSettings: Seq[Def.Setting[?]] = vite.DefaultSettings.globalSettings
 }
