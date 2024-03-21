@@ -9,10 +9,9 @@
 package africa.shuwari.sbt
 package vite
 
-import africa.shuwari.sbt.JSBundlerPlugin.{autoImport => js}
-import sbt.Def
+import africa.shuwari.sbt.JSBundlerPlugin.autoImport as js
+import sbt.{Def, Util as _, *}
 import sbt.Keys.*
-import sbt.{Util => _, _}
 
 import java.io.File.pathSeparator
 import java.util.concurrent.atomic.AtomicReference
@@ -20,6 +19,10 @@ import java.util.concurrent.atomic.AtomicReference
 object DefaultSettings {
 
   def projectSettings: List[Setting[?]] = plugin ++ common ++ run ++ build
+
+//  def globalSettings = List(
+//    onLoad := globalShutdownHookSetting.value
+//  )
 
   def plugin: List[Setting[?]] = List(
     ViteImport.viteExecutable := viteExecutable.value,
@@ -42,7 +45,7 @@ object DefaultSettings {
     Global / onLoad := ((s: State) =>
       s.addExitHook {
         Util.processDestroy(
-          ViteImport.viteProcessInstance.value.getAndSet(None),
+          (ThisProject / ViteImport.viteProcessInstance).value.getAndSet(None),
           s.log
         )
 
@@ -53,22 +56,34 @@ object DefaultSettings {
       val logger = streams.value.log
       val parameters =
         CliParameter.devServerParameters.value // FIXME Notify if existing process used
-      Def.task {
-        if (reference.get.isEmpty) {
-          val process = viteProcess(None, parameters).value
-          logger.info(s"Started Vite process: $process")
-          reference.set(Some(process))
+      Def
+        .task {
+          if (reference.get.isEmpty) {
+            val process = viteProcess(None, parameters).value
+            logger.info(s"Started Vite process: ${process.pid}")
+            reference.set(Some(process))
+          } else {
+            logger.info(s"Vite process active: ${reference.get.get.pid}")
+          }
         }
-      }
+        .dependsOn(JSBundlerPlugin.autoImport.jsPrepare)
     }.value,
-    ViteImport.viteStop := terminateAll.value
-  )
-
-  private def terminateAll = Def.task(
-    Util.processDestroy(
+    ViteImport.viteStop := Util.processDestroy(
       ViteImport.viteProcessInstance.value.getAndSet(None),
       streams.value.log
-    ))
+    )
+  )
+
+//  private def globalShutdownHookSetting: Def.Initialize[State => State] = Def.setting {
+//    (Global / onLoad).value.compose { (s: State) =>
+//      s.addExitHook(
+//        Util.processDestroy(
+//          (ThisProject / ViteImport.viteProcessInstance).value.getAndSet(None),
+//          s.log
+//        )
+//      )
+//    }
+//  }
 
   private def common: List[Setting[?]] = List(
     ViteImport.base := None,
