@@ -1,17 +1,26 @@
-/** *************************************************************** Copyright © Shuwari Africa Ltd. All rights reserved.
-  * * * Shuwari Africa Ltd. licenses this file to you under the terms * of the Apache License Version 2.0 (the
-  * "License"); you may * not use this file except in compliance with the License. You * may obtain a copy of the
-  * License at: * * https://www.apache.org/licenses/LICENSE-2.0 * * Unless required by applicable law or agreed to in
-  * writing, * software distributed under the License is distributed on an * "AS IS" BASIS, WITHOUT WARRANTIES OR
-  * CONDITIONS OF ANY KIND, * either express or implied. See the License for the specific * language governing
-  * permissions and limitations under the * License. *
-  */
+/*****************************************************************
+ * Copyright © Shuwari Africa Ltd. All rights reserved.          *
+ *                                                               *
+ * Shuwari Africa Ltd. licenses this file to you under the terms *
+ * of the Apache License Version 2.0 (the "License"); you may    *
+ * not use this file except in compliance with the License. You  *
+ * may obtain a copy of the License at:                          *
+ *                                                               *
+ *     https://www.apache.org/licenses/LICENSE-2.0               *
+ *                                                               *
+ * Unless required by applicable law or agreed to in writing,    *
+ * software distributed under the License is distributed on an   *
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,  *
+ * either express or implied. See the License for the specific   *
+ * language governing permissions and limitations under the      *
+ * License.                                                      *
+ *****************************************************************/
 package africa.shuwari.sbt
 package vite
 
-import africa.shuwari.sbt.JSBundlerPlugin.autoImport as js
-import sbt.{Def, Util as _, *}
+import africa.shuwari.sbt.js.JSImports as js
 import sbt.Keys.*
+import sbt.{Util as _, *}
 
 import java.io.File.pathSeparator
 import java.util.concurrent.atomic.AtomicReference
@@ -19,10 +28,6 @@ import java.util.concurrent.atomic.AtomicReference
 object DefaultSettings {
 
   def projectSettings: List[Setting[?]] = plugin ++ common ++ run ++ build
-
-//  def globalSettings = List(
-//    onLoad := globalShutdownHookSetting.value
-//  )
 
   def plugin: List[Setting[?]] = List(
     ViteImport.viteExecutable := viteExecutable.value,
@@ -39,18 +44,14 @@ object DefaultSettings {
           processTarget
         }
       }
-      .dependsOn(JSBundlerPlugin.autoImport.jsPrepare)
+      .dependsOn(js.assemble)
       .value,
     ViteImport.viteProcessInstance := new AtomicReference(None),
-    Global / onLoad := ((s: State) =>
-      s.addExitHook {
-        Util.processDestroy(
-          (ThisProject / ViteImport.viteProcessInstance).value.getAndSet(None),
-          s.log
-        )
-
-      }),
-    // ViteImport.viteBuild := viteBuildProcess(CliParameter.devServer.value),
+    Global / onLoad := {
+      def exitHook(s: State): State =
+        s.addExitHook(Util.processDestroy((ThisProject / ViteImport.viteProcessInstance).value.getAndSet(None), s.log))
+      (Global / onLoad).value.compose(exitHook)
+    },
     ViteImport.vite := Def.taskDyn {
       val reference = ViteImport.viteProcessInstance.value
       val logger = streams.value.log
@@ -66,7 +67,7 @@ object DefaultSettings {
             logger.info(s"Vite process active: ${reference.get.get.pid}")
           }
         }
-        .dependsOn(JSBundlerPlugin.autoImport.jsPrepare)
+        .dependsOn(js.assemble)
     }.value,
     ViteImport.viteStop := Util.processDestroy(
       ViteImport.viteProcessInstance.value.getAndSet(None),
@@ -74,23 +75,12 @@ object DefaultSettings {
     )
   )
 
-//  private def globalShutdownHookSetting: Def.Initialize[State => State] = Def.setting {
-//    (Global / onLoad).value.compose { (s: State) =>
-//      s.addExitHook(
-//        Util.processDestroy(
-//          (ThisProject / ViteImport.viteProcessInstance).value.getAndSet(None),
-//          s.log
-//        )
-//      )
-//    }
-//  }
-
   private def common: List[Setting[?]] = List(
     ViteImport.base := None,
     ViteImport.config := None,
     ViteImport.force := None,
     ViteImport.logLevel := Level.Info,
-    ViteImport.mode := (if (js.jsFullLink.value)
+    ViteImport.mode := (if (js.fullLink.value)
                           ViteImport.Mode.Production
                         else ViteImport.Mode.Development)
   )
@@ -113,7 +103,7 @@ object DefaultSettings {
 
   private def viteProcess(command: Option[String], parameters: List[String]): Def.Initialize[Task[java.lang.Process]] =
     Def.taskDyn {
-      val source = (js.jsPrepare / target).value
+      val source = (js.assemble / target).value
       Def.task(
         Util.processRun(
           ViteImport.viteExecutable.value ++ (command.toList ++: parameters),
@@ -137,7 +127,7 @@ object DefaultSettings {
   }
 
   private def nodeModulesBasePaths = Def.setting(
-    Set((js.jsPrepare / target).value, (ThisProject / baseDirectory).value, (LocalRootProject / baseDirectory).value)
+    Set((js.assemble / target).value, (ThisProject / baseDirectory).value, (LocalRootProject / baseDirectory).value)
   )
 
   private def defaultExtraEnv(
@@ -239,7 +229,7 @@ object DefaultSettings {
         val ssr = CliParameter("ssr" -> ViteImport.ssr.value)
         val sourcemap = CliParameter("sourcemap" -> ViteImport.sourcemap.value)
         val outDir = CliParameter(
-          "outDir" -> Some((JSBundlerPlugin.autoImport.js / sbt.Keys.target).value)
+          "outDir" -> Some((js.js / sbt.Keys.target).value)
         )
 
         Def.task(

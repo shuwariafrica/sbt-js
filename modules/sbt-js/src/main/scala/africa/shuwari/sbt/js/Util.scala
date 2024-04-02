@@ -15,22 +15,17 @@
  * language governing permissions and limitations under the      *
  * License.                                                      *
  *****************************************************************/
-package africa.shuwari.sbt.vite
+package africa.shuwari.sbt.js
 
 import sbt.*
 
-import africa.shuwari.sbt.js.JSBundlerPlugin
-import africa.shuwari.sbt.vite
+import africa.shuwari.sbt.js.JSImports.fullLink
 
-object VitePlugin extends AutoPlugin {
-  object autoImport {
-    final val vite = ViteImport
-  }
-  override def requires: Plugins = JSBundlerPlugin
+object Util {
 
-  override def trigger = noTrigger
+  private[sbt] def allDescendants(base: File): Glob = Glob(base, **)
 
-  override def projectSettings: Seq[Setting[?]] = vite.DefaultSettings.projectSettings
+  private[sbt] def pathSuffix: Def.Initialize[String] =
+    Def.setting(s"-${if (fullLink.value) "full" else "fast"}-linked")
 
-//  override def globalSettings: Seq[Def.Setting[?]] = vite.DefaultSettings.globalSettings
 }

@@ -1,25 +1,35 @@
-/** *************************************************************** Copyright © Shuwari Africa Ltd. All rights reserved.
-  * * * Shuwari Africa Ltd. licenses this file to you under the terms * of the Apache License Version 2.0 (the
-  * "License"); you may * not use this file except in compliance with the License. You * may obtain a copy of the
-  * License at: * * https://www.apache.org/licenses/LICENSE-2.0 * * Unless required by applicable law or agreed to in
-  * writing, * software distributed under the License is distributed on an * "AS IS" BASIS, WITHOUT WARRANTIES OR
-  * CONDITIONS OF ANY KIND, * either express or implied. See the License for the specific * language governing
-  * permissions and limitations under the * License. *
-  */
-package africa.shuwari.sbt
+/*****************************************************************
+ * Copyright © Shuwari Africa Ltd. All rights reserved.          *
+ *                                                               *
+ * Shuwari Africa Ltd. licenses this file to you under the terms *
+ * of the Apache License Version 2.0 (the "License"); you may    *
+ * not use this file except in compliance with the License. You  *
+ * may obtain a copy of the License at:                          *
+ *                                                               *
+ *     https://www.apache.org/licenses/LICENSE-2.0               *
+ *                                                               *
+ * Unless required by applicable law or agreed to in writing,    *
+ * software distributed under the License is distributed on an   *
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,  *
+ * either express or implied. See the License for the specific   *
+ * language governing permissions and limitations under the      *
+ * License.                                                      *
+ *****************************************************************/
+package africa.shuwari.sbt.js
 
-import africa.shuwari.sbt.jsbundler.Imports
-import africa.shuwari.sbt.jsbundler.Imports.*
-import africa.shuwari.sbt.jsbundler.Util.*
 import org.scalajs.sbtplugin.ScalaJSPlugin
 import org.scalajs.sbtplugin.ScalaJSPlugin.autoImport.*
-import sbt.Keys.*
-import sbt.Path.*
-import sbt.*
-import sbt.nio.Keys.*
 
 import java.nio.file.Files
 import java.nio.file.Path
+
+import sbt.*
+import sbt.Keys.*
+import sbt.Path.*
+import sbt.nio.Keys.*
+
+import africa.shuwari.sbt.js.JSImports as js
+import africa.shuwari.sbt.js.Util.*
 
 object JSBundlerPlugin extends AutoPlugin {
 
@@ -27,26 +37,24 @@ object JSBundlerPlugin extends AutoPlugin {
 
   override def trigger: PluginTrigger = allRequirements
 
-  val autoImport: Imports.type = Imports
+  object autoImport {
+    final val js = JSImports
+  }
 
   override def projectSettings: Seq[Setting[_]] = List(
-    jsFullLink := sys.env
-      .get("NODE_ENV")
-      .exists(_.toLowerCase.trim == "production"),
-    js / sourceDirectory := (Compile / sourceDirectory).value / "js", // TODO: Allow for Test configuration
-    js / sourceDirectories := List((js / sourceDirectory).value),
-    js / target := (Compile / crossTarget).value / s"${js.key.label.toLowerCase}-${normalizedName.value}-assembly${pathSuffix.value}",
-    jsPrepare / target := (Compile / crossTarget).value / s"${jsPrepare.key.label.toLowerCase}-${normalizedName.value}-target${pathSuffix.value}",
-    jsPrepare / fileInputs := Glob(
-      (ThisProject / baseDirectory).value,
-      "package*.json"
-    ) +: (js / sourceDirectories).value.map(allDescendants),
-    jsPrepare / fileInputIncludeFilter := ((jsPrepare / fileInputIncludeFilter) ?? PathFilter(
+    js.fullLink := defaults.jsFullLink,
+    js.jsSource := defaults.sourceDirectory.value,
+    js.js / sourceDirectories := defaults.sourceDirectories.value,
+    js.js / target := defaults.targetDirectory.value,
+    js.moduleDirectory := defaults.nodeProjectDirectory.value,
+    js.assemble / target := defaults.assemblyTargetDirectory.value,
+    js.assemble / fileInputs := defaults.assemblyFileInputs.value,
+    js.assemble / fileInputIncludeFilter := ((js.assemble / fileInputIncludeFilter) ?? PathFilter(
       RecursiveGlob
     )).value,
-    jsPrepare / fileInputExcludeFilter := ((jsPrepare / fileInputExcludeFilter) ?? (HiddenFileFilter || DirectoryFilter).toNio).value,
-    jsPrepare := Def.taskDyn {
-      val full = jsFullLink.value
+    js.assemble / fileInputExcludeFilter := ((js.assemble / fileInputExcludeFilter) ?? (HiddenFileFilter || DirectoryFilter).toNio).value,
+    js.assemble := Def.taskDyn {
+      val full = js.fullLink.value
       Def.task {
         val log = streams.value.log
         def logf(file: File) =
@@ -58,19 +66,19 @@ object JSBundlerPlugin extends AutoPlugin {
             .map(p => s"${logf(p._1)} -> ${logf(p._2)}")
             .mkString("\n\t\t", "\n\t\t", "\n")
 
-        val jsTarget = (jsPrepare / Keys.target).value
+        val jsTarget = (js.assemble / Keys.target).value
         log.debug(
-          s"Using ${jsPrepare.key.label} target directory: ${logf(jsTarget)}"
+          s"Using ${js.assemble.key.label} target directory: ${logf(jsTarget)}"
         )
         if (!jsTarget.exists) {
           Files.createDirectories(jsTarget.toPath)
           log.debug(
-            s"Created ${jsPrepare.key.label} target directory: ${logf(jsTarget)}"
+            s"Created ${js.assemble.key.label} target directory: ${logf(jsTarget)}"
           )
         }
 
-        val jsInputFiles = jsPrepare.inputFiles.toSet
-        val jsInputFileDirectories = (js / sourceDirectories).value.toSet
+        val jsInputFiles = js.assemble.inputFiles.toSet
+        val jsInputFileDirectories = (JSImports.js / sourceDirectories).value.toSet
         log.debug(
           s"Discovered Javascript project files in ${jsInputFileDirectories
               .mkString(", ")}:" + jsInputFiles
@@ -84,8 +92,7 @@ object JSBundlerPlugin extends AutoPlugin {
             .pair(rebase(jsInputFileDirectories, jsTarget) | flat(jsTarget))
             .toSet
 
-        val scalaJsOutputDir = (if (full) Compile / fullLinkJSOutput
-                                else Compile / fastLinkJSOutput).value
+        val scalaJsOutputDir = (if (full) Compile / fullLinkJSOutput else Compile / fastLinkJSOutput).value
 
         val scalaJsOutput =
           fileTreeView.value.list(scalaJsOutputDir.toGlob / **)
@@ -130,7 +137,7 @@ object JSBundlerPlugin extends AutoPlugin {
             .toSet
         }
 
-        val jsSourceFileChanges = jsPrepare.inputFileChanges
+        val jsSourceFileChanges = js.assemble.inputFileChanges
 
         val jsUpdated = jsInputFileMappings.filter(p =>
           (jsSourceFileChanges.created ++ jsSourceFileChanges.modified)
