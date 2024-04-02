@@ -22,15 +22,15 @@ lazy val `sbt-js` =
   project
     .in(file("modules/sbt-js"))
     .enablePlugins(SbtPlugin)
-    .settings(publishSettings*)
-    .settings(scriptedSettings*)
+    .settings(publishSettings *)
+    .settings(scriptedSettings *)
     .settings(addSbtPlugin("org.scala-js" % "sbt-scalajs" % "1.16.0"))
 
 lazy val `sbt-vite` =
   project
     .in(file("modules/sbt-vite"))
     .enablePlugins(SbtPlugin)
-    .settings(publishSettings*)
+    .settings(publishSettings *)
     .dependsOn(`sbt-js`)
 
 lazy val `sbt-js-documentation` =
