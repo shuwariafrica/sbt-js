@@ -15,22 +15,29 @@
  * language governing permissions and limitations under the      *
  * License.                                                      *
  *****************************************************************/
-package africa.shuwari.sbt.vite
+package africa.shuwari.sbt.js
 
 import sbt.*
 
-import africa.shuwari.sbt.js.JSBundlerPlugin
-import africa.shuwari.sbt.vite
+object JSImports {
 
-object VitePlugin extends AutoPlugin {
-  object autoImport {
-    final val vite = ViteImport
-  }
-  override def requires: Plugins = JSBundlerPlugin
+  val assemble = TaskKey[File](
+    "jsAssemble",
+    "Compile, link, and prepare project for packaging and/or processing with external tools."
+  )
 
-  override def trigger = noTrigger
+  val fullLink =
+    SettingKey[Boolean](
+      "jsFullLink",
+      "Defines whether \"fullLink\" or \"fastLink\" ScalaJS Linker output is used."
+    )
 
-  override def projectSettings: Seq[Setting[?]] = vite.DefaultSettings.projectSettings
+  val jsSource = settingKey[File]("Default Javascript source/resource directory")
 
-//  override def globalSettings: Seq[Def.Setting[?]] = vite.DefaultSettings.globalSettings
+  val moduleDirectory = TaskKey[File]("jsModuleDirectory", "Specifies an npm module base directory.")
+
+  val js = taskKey[File](
+    "Process and/or package assembled project with external tools."
+  )
+
 }
