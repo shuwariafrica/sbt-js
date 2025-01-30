@@ -24,7 +24,7 @@ lazy val `sbt-js` =
     .enablePlugins(SbtPlugin)
     .settings(publishSettings *)
     .settings(scriptedSettings *)
-    .settings(addSbtPlugin("org.scala-js" % "sbt-scalajs" % "1.18.1"))
+    .settings(addSbtPlugin("org.scala-js" % "sbt-scalajs" % "1.18.2"))
 
 lazy val `sbt-vite` =
   project
