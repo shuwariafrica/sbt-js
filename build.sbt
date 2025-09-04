@@ -5,7 +5,7 @@ inThisBuild(
     homepage := Some(url("https://github.com/shuwarifrica/sbt-js")),
     version := versionSetting.value,
     dynver := versionSetting.toTaskable.toTask.value,
-    sonatypeCredentialHost := "s01.oss.sonatype.org",
+    sonatypeCredentialHost := Sonatype.sonatypeCentralHost,
     publishCredentials,
     scmInfo := ScmInfo(
       url("https://github.com/shuwariafrica/sbt-js"),
