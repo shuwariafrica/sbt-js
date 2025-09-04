@@ -34,10 +34,10 @@ jobs:
           check-latest: true
 
       - name: Execute Unit Tests
-        run: sbt test
+        run: sbt -Dsbt.ci=true test
 
       - name: Package Project Products
-        run: sbt package
+        run: sbt -Dsbt.ci=true package
 
   publish:
     name: Publish Release
@@ -64,12 +64,10 @@ jobs:
           gpg_private_key: ${{ secrets.OSS_PUBLISH_USER_SIGNING_KEY }}
           git_user_signingkey: true
           git_commit_gpgsign: true
-
-      - name: Update Signing Key Trust Level
-        run: echo -e "trust\n5\ny" | gpg --batch --no-tty --command-fd 0 --edit-key ${{ secrets.OSS_PUBLISH_USER_SIGNING_KEY_ID }}
+          trust_level: 5
 
       - name: Publish Projects
-        run: sbt publishSigned sonatypeBundleRelease
+        run: sbt -Dsbt.ci=true "clean; publishSigned; sonatypeBundleRelease"
         env:
           PUBLISH_USER: ${{ secrets.OSS_PUBLISH_USER }}
           PUBLISH_USER_PASSPHRASE: ${{ secrets.OSS_PUBLISH_USER_PASSPHRASE }}
@@ -102,12 +100,10 @@ jobs:
           git_user_signingkey: true
           git_commit_gpgsign: true
           git_committer_name: Shuwari Africa Team
-
-      - name: Update Signing Key Trust Level
-        run: echo -e "trust\n5\ny" | gpg --batch --no-tty --command-fd 0 --edit-key ${{ secrets.OSS_PUBLISH_USER_SIGNING_KEY_ID }}
+          trust_level: 5
 
       - name: Generate Documentation
-        run: sbt sbt-js-documentation/mdoc
+        run: sbt -Dsbt.ci=true sbt-js-documentation/mdoc
 
       - name: Commit Documentation Changes
         run: |
@@ -119,4 +115,3 @@ jobs:
         with:
           github_token: ${{ secrets.OSS_TEAM_TOKEN }}
           branch: main
-
