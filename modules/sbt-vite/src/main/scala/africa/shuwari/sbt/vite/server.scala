@@ -17,12 +17,9 @@
  ****************************************************************/
 package africa.shuwari.sbt.vite
 
-import sbt.File
-
-private[vite] object Messages {
-
-  def viteScriptNotFound(searchPaths: Iterable[File]) =
-    s"Unable to locate vite script. Please ensure vite dependency has been installed using your preferred package manager. Paths searched: ${searchPaths
-        .map(f => s""""${f.getAbsolutePath}""")}"
-
-}
+/** Internal state for a running Vite dev server */
+final private[vite] case class ServerState(
+  process: java.lang.Process,
+  fingerprint: String,
+  startedAt: Long = System.currentTimeMillis()
+)
