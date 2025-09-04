@@ -7,8 +7,8 @@ set -euo pipefail
 
 # --- Configuration ---
 # Define the main/parent GitHub repository
-: "${MAIN_REPO_OWNER:=arashi01}"
-: "${MAIN_REPO_NAME:=zio-scribe}"
+: "${MAIN_REPO_OWNER:=shuwariafrica}"
+: "${MAIN_REPO_NAME:=sbt-js}"
 
 # Define colors for output for better readability
 readonly C_RESET='\033[0m'
