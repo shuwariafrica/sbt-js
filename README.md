@@ -1,73 +1,98 @@
 # sbt-js
 
-Collection of [sbt](https://scala-sbt.org) plugins for uniform configuration of Shuwari Africa Ltd. sbt projects, as well
-as CI and Release related functionality.
+Plugins providing a consistent Scala.js + JS toolchain baseline (assembly, dev workflow with Vite, build & release helpers).
 
-_NB: Unless specified otherwise, all plugins listed below are sbt `AutoPlugins`, and will be enabled automatically upon meeting the required plugin dependencies for each._
+All listed plugins are `AutoPlugin`s unless noted; enable by adding them with a normal `addSbtPlugin` line (they trigger automatically when prerequisites are present).
 
-The following plugins are available:
-__________________________________
+## Modules
 
 ### sbt-vite
 
 ```scala
-addSbtPlugin("africa.shuwari.sbt" % "sbt-vite" % "0.14.2")
+addSbtPlugin("africa.shuwari.sbt" % "sbt-vite" % "@VERSION@")
 ```
 
-| Depends On:            |
-|------------------------|
-| [sbt-js](#sbt-js-core) |
+Depends on: [`sbt-js`](#sbt-js-core)
 
-Preconfigures projects with opinionated project defaults for ScalaJS libraries and/or applications. Uses [Vite](https://vitejs.dev/) for bundling, and postprocessing.
+Integrates [Vite](https://vitejs.dev/) for local development and production builds. Provides deterministic, fingerprinted dev server management (auto‑restart on config change), safe single-instance concurrency, robust shutdown, and build failure propagation.
 
-Introduces additional sbt `SettingKeys` and `TaskKeys`, specifically:
+#### Dev server lifecycle & fingerprint
 
-| Key                      | Description                                                                                                   | Default                                                                                                             |
-|--------------------------|---------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------|
-| `vite`                   | Task: Compiles, links, and prepares project for packaging and/or processing with external tools."             | _N/A_                                                                                                               |
-| `viteBuild`              | Task: Executes `vite build` using the options specified in _sbt-vite_ plugin settings.                        | _N/A_                                                                                                               |
-| `viteStop`               | Task: Shuts down any running instances of Vite's development server.                                          | _N/A_                                                                                                               |
-| `vite.base`              | Setting: Option corresponding to Vite's `--base` setting. See [Vite documentation](https://vitejs.dev/guide/cli.html).              | `None`                                                                                                              |
-| `vite.config`            | Setting: Option corresponding to Vite's `--config` setting. See [Vite documentation](https://vitejs.dev/guide/cli.html).            | `None`                                                                                                              |
-| `vite.force`             | Setting: Option corresponding to Vite's `--force` setting. See [Vite documentation](https://vitejs.dev/guide/cli.html).             | `None`                                                                                                              |
-| `vite.logLevel`          | Setting: Option corresponding to Vite's `--logLevel` setting. See [Vite documentation](https://vitejs.dev/guide/cli.html).          | `Level.Info`                                                                                                        |
-| `vite.mode`              | Setting: Option corresponding to Vite's `--mode` setting. See [Vite documentation](https://vitejs.dev/guide/cli.html).              | ```if (JSBundlerPlugin.autoImport.jsFullLink.value) ViteImport.Mode.Production else ViteImport.Mode.Development ``` |
-| `vite.host`              | Setting: Option corresponding to Vite's `--host` setting. See [Vite documentation](https://vitejs.dev/guide/cli.html).              | `None`                                                                                                              |
-| `vite.port`              | Setting: Option corresponding to Vite's `--port` setting. See [Vite documentation](https://vitejs.dev/guide/cli.html).              | `None`                                                                                                              |
-| `vite.strictPort`        | Setting: Option corresponding to Vite's `--strictPort` setting. See [Vite documentation](https://vitejs.dev/guide/cli.html).        | `None`                                                                                                              |
-| `vite.cors`              | Setting: Option corresponding to Vite's `--cors` setting. See [Vite documentation](https://vitejs.dev/guide/cli.html).              | `None`                                                                                                              |
-| `vite.assetsDir`         | Setting: Option corresponding to Vite's `--assetsDir` setting. See [Vite documentation](https://vitejs.dev/guide/cli.html).         | `None`                                                                                                              |
-| `vite.assetsInlineLimit` | Setting: Option corresponding to Vite's `--assetsInlineLimit` setting. See [Vite documentation](https://vitejs.dev/guide/cli.html). | `None`                                                                                                              |
-| `vite.ssr`               | Setting: Option corresponding to Vite's `--ssr` setting. See [Vite documentation](https://vitejs.dev/guide/cli.html).               | `None`                                                                                                              |
-| `vite.sourcemap`         | Setting: Option corresponding to Vite's `--sourcemap` setting. See [Vite documentation](https://vitejs.dev/guide/cli.html).         | `None`                                                                                                              |
-| `vite.minify`            | Setting: Option corresponding to Vite's `--minify` setting. See [Vite documentation](https://vitejs.dev/guide/cli.html).            | `None`                                                                                                              |
+The `vite` task maintains a single long‑running dev server process. A SHA‑1 fingerprint is computed from:
 
-__________________________________
+* Resolved dev server CLI parameters (only keys you explicitly set)
+* The assembled asset staging directory path
+* The resolved Vite mode (`development` / `production`)
+
+If any component changes between invocations the existing process is terminated and a new one is started transparently. Re‑invoking `vite` with no effective configuration change is a cheap no‑op (log message: "already running").
+
+#### PATH augmentation
+
+The effective `PATH` (or `Path` on Windows) passed to the Vite process is augmented with each discovered `node_modules/.bin` directory from:
+
+* The assembled JS staging directory
+* The current project base directory
+* The root project base directory
+
+The augmentation is de‑duplicated and memoized for the lifetime of the sbt session to avoid repeated string processing.
+
+Key tasks & settings:
+
+| Key | Type | Description | Notes |
+|-----|------|-------------|-------|
+| `vite` | Task[Unit] | Starts (or reuses) the Vite dev server; configuration changes trigger transparent restart. | Single instance via task tag. |
+| `viteStop` | Task[Unit] | Stops the running dev server (if any). | Gracefully terminates process tree. |
+| `viteBuild` | Task[File] | Runs `vite build` (production) and fails fast on non‑zero exit. | Output: `jsAssemble/target/dist`. |
+| `vite.base` / `vite.config` / `vite.force` ... | Setting | Direct mappings to Vite CLI flags (e.g. `--base`, `--config`). | Only flags you set are passed. |
+| `vite.mode` | Setting | Vite mode (`development` / `production`). | Derived from `jsFullLink` (`NODE_ENV=production` => production). |
+| `vite.port`, `vite.host`, `vite.strictPort`, `vite.cors` | Setting | Dev server networking flags. | Changes included in restart fingerprint. |
+| `vite.assetsDir`, `vite.assetsInlineLimit`, `vite.ssr`, `vite.sourcemap`, `vite.minify` | Setting | Build‑only flags. | Applied to `viteBuild`. |
 
 ### sbt-js-core
 
 ```scala
-addSbtPlugin("africa.shuwari.sbt" % "sbt-js" % "0.14.2")
+addSbtPlugin("africa.shuwari.sbt" % "sbt-js" % "<version>")
 ```
 
-Preconfigures projects with opinionated project defaults for ScalaJS libraries and/or applications. Provides a foundation for incremental assembly using external Javascript ecosystem
-tools.
+Provides Scala.js stage selection plus incremental assembly of static resources and linker output (fast or full link chosen automatically from environment). Assembly copies only changed files and prunes stale ones.
 
-Introduces additional sbt `SettingKeys` and `TaskKeys`, specifically relevant:
+Key tasks & settings:
 
-| Key                                  | Description                                                                                                                                            | Default                                                                                                      |
-|--------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------|
-| `jsPrepare`                          | Task: Compiles, links, and prepares project for packaging and/or processing with external tools."                                                      | _N/A_                                                                                                        |
-| `jsFullLink`                         | Setting: Defines whether _"fullLink"_ or _"fastLink\"_ ScalaJS Linker output is used.                                                                  | `true` where `NODE_ENV` environment variable is defined with a value of `peoduction`. and `false` otherwise. |
-| `js`                                 | Task: Process and/or package assembled project with external tools.                                                                                    | Unimplemented. To be customised by end-user.                                                                 |
-| `jsSource`               | Setting: Default directory containing sources and resources to be copied as-is to `jsPrepare / target` during `jsPrepare` execution.                   | `(Compile / sourceDirectory) / js`                                                                           |
-| `js / sourceDirectories`             | Setting: List of all directories containing sources and resources to be copied as-is to `jsPrepare / target` during `jsPrepare` execution.             | `(Compile / sourceDirectory) / js`                                                                           |
-| `js / target`                        | Setting: Defines a target directory for the `js` task. Usable if required.                                                                             | _N/A_                                                                                                        |
-| `jsPrepare / target`                 | Setting: Defines a default target directory for the `jsPrepare` task.                                                                                  | _N/A_                                                                                                        |
-| `jsPrepare / fileInputIncludeFilter` | Setting: An sbt `sbt.nio.file.PathFilter` inclusion filter to apply to the input sources and resources copied to the prepared assembly by `jsPrepare`. | `RecursiveGlob`                                                                                              |
-| `jsPrepare / fileInputExcludeFilter` | Setting: An sbt `sbt.nio.file.PathFilter` exclusion filter to apply to the input sources and resources copied to the prepared assembly by `jsPrepare`. | `HiddenFileFilter`                                                                                           |
+| Key | Type | Description | Notes |
+|-----|------|-------------|-------|
+| `jsAssemble` | Task[File] | Incrementally assembles static JS/resources + Scala.js linker output into a staging directory. | Auto depends on correct Scala.js stage. |
+| `jsFullLink` | Setting[Boolean] | Chooses full (optimized) or fast linker output. | `true` iff `NODE_ENV=production` (case‑insensitive). |
+| `jsSource` | Setting[File] | Primary static resource root. | Defaults: `(Compile / sourceDirectory)/js`. |
+| `js / sourceDirectories` | Setting[Seq[File]] | All static resource roots. | You can append additional directories. |
+| `js / target` | Setting[File] | Generic target for any user `js` task chaining. | Provided; not modified by plugin code. |
+| `jsAssemble / target` | Setting[File] | Staging directory for assembled assets. | Includes full/fast link output + static files. |
+| `jsAssemble / fileInputIncludeFilter` / `fileInputExcludeFilter` | Setting[PathFilter] | Filters applied to static resource discovery. | Include defaults: recursive; exclude hidden + directories. |
 
-__________________________________
+Incremental assembly details:
+
+* Uses `FileFunction.cached` to copy only changed or new files; preserves timestamps.
+* Removes stale outputs no longer mapped (excluding any transient `node_modules` artifacts you might overlay separately).
+* Dynamically selects correct linker output directory after forcing the appropriate Scala.js stage (`fastLinkJS` or `fullLinkJS`).
+* Safe to run repeatedly; no redundant copying logged unless files change.
+
+Environment influence:
+
+* Set `NODE_ENV=production` before invoking sbt to trigger full optimization (`jsFullLink = true`).
+* Otherwise fast link is used for faster dev cycles.
+
+Typical workflow:
+
+```text
+sbt jsAssemble        # build staging assets (fast link by default)
+sbt vite              # start dev server (auto restarts on setting changes)
+sbt viteBuild         # production build (uses assembled staging dir)
+```
+
+Customization examples:
+
+* Add more static roots: `js / sourceDirectories += (Compile / resourceDirectory).value / "web"`.
+* Override assembly target: `jsAssemble / target := crossTarget.value / "custom-web"`.
+* Force production locally: `jsFullLink := true` (overrides environment detection).
 
 ## License
 
