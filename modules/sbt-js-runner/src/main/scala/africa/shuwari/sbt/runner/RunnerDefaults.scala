@@ -15,18 +15,35 @@
  * language governing permissions and limitations under the     *
  * License.                                                     *
  ****************************************************************/
-package africa.shuwari.sbt
-package vite
+package africa.shuwari.sbt.runner
 
-import sbt.util.Level
+import sbt.*
+import sbt.Keys.*
 
-object Util {
+import africa.shuwari.sbt.js.JSImports as js
+import africa.shuwari.sbt.js.PlatformUtil
 
-  def viteLogLevel(level: Level.Value): String =
-    level match {
-      case Level.Info  => "info"
-      case Level.Warn  => "warn"
-      case Level.Error => "error"
-      case _           => "info"
-    }
+/** Baseline settings consumed by `JsRunnerPlugin`. */
+object RunnerDefaults {
+
+  /** Default wiring for the core [[RunnerImports]] keys. It discovers candidate `node_modules` directories, resolves
+    * the active Node project, and exposes the system Node executable.
+    */
+  def projectSettings: Seq[Setting[?]] = Seq(
+    RunnerImports.jsNodeModules := {
+      val candidates = Set(
+        (js.assemble / target).value,
+        (ThisProject / baseDirectory).value,
+        (LocalRootProject / baseDirectory).value
+      )
+      // Filter to only existing directories
+      candidates.filter(_.exists())
+    },
+    RunnerImports.jsNodeProject :=
+      RunnerUtil.findNodeProject(
+        RunnerImports.jsNodeModules.value,
+        streams.value.log
+      ),
+    RunnerImports.jsNodeExecutable := PlatformUtil.node
+  )
 }

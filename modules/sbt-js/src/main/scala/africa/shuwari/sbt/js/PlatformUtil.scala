@@ -23,8 +23,7 @@ import scala.util.Properties
 
 import sbt.Logger
 
-/** Cross-platform helpers for locating node-related executables and terminating process trees robustly.
-  */
+/** Cross-platform helpers for locating node-related executables and terminating process trees robustly. */
 private[sbt] object PlatformUtil {
 
   val isWindows: Boolean = Properties.isWin
@@ -40,8 +39,7 @@ private[sbt] object PlatformUtil {
 
   val node: String = executableName("node")
 
-  /** Attempt graceful then forced termination of a process and its descendants.
-    */
+  /** Attempt graceful then forced termination of a process and its descendants. */
   def processDestroy(process: Option[java.lang.Process], log: Logger): Unit =
     process.foreach { p =>
       if (p.isAlive) {

@@ -21,20 +21,19 @@ import sbt.*
 import sbt.Keys.concurrentRestrictions
 import sbt.Tags
 
-import africa.shuwari.sbt.js.JSBundlerPlugin
-import africa.shuwari.sbt.vite
+import africa.shuwari.sbt.runner.JsRunnerPlugin
 
 object VitePlugin extends AutoPlugin {
   object autoImport {
     final val vite = ViteImport
   }
-  override def requires: Plugins = JSBundlerPlugin
+  override def requires: Plugins = JsRunnerPlugin
 
   override def trigger = noTrigger
 
-  override def projectSettings: Seq[Setting[?]] = vite.DefaultSettings.projectSettings
+  override def projectSettings: Seq[Setting[?]] = DefaultSettings.projectSettings
 
   override def globalSettings: Seq[Def.Setting[?]] = Seq(
-    concurrentRestrictions += Tags.limit(Tags.Tag("vite-dev-server"), 1)
+    concurrentRestrictions += Tags.limit(RunnerBridge.serverTag, 1)
   )
 }
