@@ -21,6 +21,15 @@ import java.io.File
 import java.util.concurrent.atomic.AtomicReference
 
 import sbt.*
+import sbt.Tags
+
+import africa.shuwari.sbt.runner.RunnerToolkit
+import africa.shuwari.sbt.runner.ServerState
+
+private[vite] object RunnerBridge {
+  val serverNamespace = "vite-dev-server"
+  val serverTag: Tags.Tag = RunnerToolkit.jsServerTag(serverNamespace)
+}
 
 object ViteImport {
   @inline private def doc(str: String) =
@@ -30,7 +39,7 @@ object ViteImport {
 
   val base = SettingKey[Option[String]]("viteBase", doc("--base"))
 
-  val config = SettingKey[Option[String]]("viteConfig", doc("--config"))
+  val config = SettingKey[Option[File]]("viteConfig", doc("--config"))
 
   // val debug = SettingKey[Option[Boolean]](
   //   "viteDebug",
@@ -70,10 +79,8 @@ object ViteImport {
   // Plugin Keys
 
   // Holds current dev server state (pid, fingerprint, start time)
-  private[vite] val viteProcessInstance =
-    settingKey[AtomicReference[Option[ServerState]]](
-      "Currently running Vite dev server state."
-    )
+  private[vite] val viteProcessInstance: SettingKey[AtomicReference[Option[ServerState]]] =
+    RunnerToolkit.jsServerState(RunnerBridge.serverNamespace)
 
   // Configuration fingerprint for dev server (params + relevant paths)
   private[vite] val viteConfigFingerprint = taskKey[String](
@@ -81,7 +88,8 @@ object ViteImport {
   )
 
   // Tag used to limit concurrency for vite server tasks
-  private[vite] val viteServerTag = taskKey[Tags.Tag]("Internal: task tag for vite server mutual exclusion")
+  private[vite] val viteServerTag =
+    taskKey[Tags.Tag]("Internal: task tag for vite server mutual exclusion")
 
 //  val useNpx = SettingKey[Boolean](
 //    "viteUseNpx",

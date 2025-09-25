@@ -15,11 +15,15 @@
  * language governing permissions and limitations under the     *
  * License.                                                     *
  ****************************************************************/
-package africa.shuwari.sbt.vite
+package africa.shuwari.sbt.runner
 
-/** Internal state for a running Vite dev server */
-final private[vite] case class ServerState(
-  process: java.lang.Process,
-  fingerprint: String,
-  startedAt: Long = System.currentTimeMillis()
-)
+import sbt.*
+
+/** Public keys intended for build authors working in their `*.sbt` files. Plugin-only helpers now live in
+  * [[RunnerToolkit]] (or [[RunnerUtil]]) to keep this surface area focused on end-user needs.
+  */
+object RunnerImports {
+  val jsNodeProject = taskKey[File]("Discovers the Node.js project root directory")
+  val jsNodeModules = taskKey[Set[File]]("Paths to search for node_modules")
+  val jsNodeExecutable = settingKey[String]("Path to the node executable")
+}

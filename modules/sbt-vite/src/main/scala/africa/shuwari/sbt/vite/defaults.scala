@@ -18,95 +18,120 @@
 package africa.shuwari.sbt
 package vite
 
-import java.io.File.pathSeparator
 import java.security.MessageDigest
 import java.util.concurrent.atomic.AtomicReference
 
 import sbt.Keys.*
-import sbt.Tags
 import sbt.{Util as _, *}
 
 import africa.shuwari.sbt.js.JSImports as js
 import africa.shuwari.sbt.js.PlatformUtil
+import africa.shuwari.sbt.runner.ManagedServer
+import africa.shuwari.sbt.runner.RunnerImports
+import africa.shuwari.sbt.runner.RunnerToolkit
+import africa.shuwari.sbt.runner.RunnerUtil
 
 object DefaultSettings {
 
+  private val pathEnvKey: String = if (PlatformUtil.isWindows) "Path" else "PATH"
+
   def projectSettings: List[Setting[?]] = plugin ++ common ++ run ++ build
 
-  def plugin: List[Setting[?]] = List(
-    ViteImport.viteExecutable := viteExecutable.value,
-    ViteImport.viteBuild := Def
-      .taskDyn {
+  private def plugin: List[Setting[?]] = List(
+    ViteImport.viteExecutable := defaultViteExecutable.value,
+    ViteImport.viteBuild := viteBuildTask.value,
+    ViteImport.viteProcessInstance := new AtomicReference[Option[africa.shuwari.sbt.runner.ServerState]](None),
+    ViteImport.viteConfigFingerprint := viteFingerprintTask.value,
+    ViteImport.viteServerTag := RunnerBridge.serverTag,
+    Global / onLoad := registerServerCleanup.value,
+    ViteImport.vite := viteDevServerTask.value,
+    ViteImport.viteStop := viteStopTask.value
+  )
+
+  private def viteBuildTask: Def.Initialize[Task[File]] =
+    Def
+      .task {
         val processTarget = (ViteImport.viteBuild / target).value
         val logger = streams.value.log
         val parameters = "--emptyOutDir true" +: CliParameter.buildParameters.value
-        Def.task {
-          val p = viteRawProcess(Some("build"), parameters).value
-          logger.info(s"Started Vite build (pid=${p.pid})")
-          val exit = p.waitFor()
-          if (exit != 0) sys.error(s"Vite build failed (exit code $exit)")
-          logger.info(s"Completed Vite build (pid=${p.pid})")
-          processTarget
-        }
+        val nodeModules = RunnerImports.jsNodeModules.value
+        val env = defaultExtraEnv(ViteImport.mode.value, nodeModules)
+        val workDir = (js.assemble / target).value
+        val commands = appendArgs(ViteImport.viteExecutable.value, "build" :: parameters)
+        val process = RunnerUtil.processRun(commands, env, workDir, logger)
+        logger.info(s"Started Vite build (pid=${process.pid})")
+        val exit = process.waitFor()
+        if (exit != 0) sys.error(s"Vite build failed (exit code $exit)")
+        logger.info(s"Completed Vite build (pid=${process.pid})")
+        processTarget
       }
       .dependsOn(js.assemble)
-      .value,
-    ViteImport.viteProcessInstance := new AtomicReference[Option[ServerState]](None),
-    ViteImport.viteConfigFingerprint := Def.task {
-      val params = CliParameter.devServerParameters.value.sorted.mkString(" ")
-      val source = (js.assemble / target).value.getAbsolutePath
-      val mode = ViteImport.mode.value.toString
-      val combined = s"$source|$mode|$params"
-      def hex(bytes: Array[Byte]) = bytes.map("%02x".format(_)).mkString
-      val md = MessageDigest.getInstance("SHA-1")
-      hex(md.digest(combined.getBytes("UTF-8")))
-    }.value,
-    ViteImport.viteServerTag := Tags.Tag("vite-dev-server"),
-    Global / onLoad := {
-      def exitHook(s: State): State =
-        s.addExitHook(
-          PlatformUtil.processDestroy(
-            (ThisProject / ViteImport.viteProcessInstance).value.getAndSet(None).map(_.process),
-            s.log
-          )
+
+  private def viteDevServerTask: Def.Initialize[Task[Unit]] =
+    Def
+      .task {
+        val logger = streams.value.log
+        val nodeModules = RunnerImports.jsNodeModules.value
+        val projectRoot = RunnerImports.jsNodeProject.value
+        val stateRef = ViteImport.viteProcessInstance.value
+        // Note: The startup wait time (750ms) is defined in ManagedServer.startupWaitMillis.
+        // This value was chosen as a balance between reliability and responsiveness for Vite server startup.
+        // If needed, consider making this configurable via a setting.
+        val managed = new ManagedServer(
+          RunnerBridge.serverNamespace,
+          stateRef,
+          projectRoot,
+          nodeModules,
+          logger
         )
-      (Global / onLoad).value.compose(exitHook)
-    },
-    ViteImport.vite := Def.taskDyn {
-      val ref = ViteImport.viteProcessInstance.value
-      val logger = streams.value.log
-      val currentFp = ViteImport.viteConfigFingerprint.value
-      val parameters = CliParameter.devServerParameters.value
-      val modeVal = ViteImport.mode.value
-      val env = defaultExtraEnv(modeVal, nodeModulesBasePaths.value)
-      val workDir = (js.assemble / target).value
-      val exec = ViteImport.viteExecutable.value
-      Def
-        .task {
-          ref.updateAndGet {
-            case Some(state) if state.process.isAlive && state.fingerprint == currentFp =>
-              logger.info(s"Vite server already running (pid=${state.process.pid})")
-              Some(state)
-            case Some(state) if state.process.isAlive =>
-              logger.info(s"Vite server configuration changed; restarting (old pid=${state.process.pid})")
-              PlatformUtil.processDestroy(Some(state.process), logger)
-              Some(startServerResolved(exec, parameters, currentFp, env, workDir, logger))
-            case _ => Some(startServerResolved(exec, parameters, currentFp, env, workDir, logger))
-          }
-          ()
-        }
-        .tag(ViteImport.viteServerTag.value)
-        .dependsOn(js.assemble)
-    }.value,
-    ViteImport.viteStop := {
-      val ref = ViteImport.viteProcessInstance.value
-      val logger = streams.value.log
-      ref.getAndSet(None).foreach { st =>
-        logger.info(s"Stopping Vite server (pid=${st.process.pid})")
-        PlatformUtil.processDestroy(Some(st.process), logger)
+        val fingerprint = ViteImport.viteConfigFingerprint.value
+        val parameters = CliParameter.devServerParameters.value
+        val env = defaultExtraEnv(ViteImport.mode.value, nodeModules)
+        val (command, prefixArgs) = splitExecutable(ViteImport.viteExecutable.value)
+        val args = prefixArgs ++ parameters
+        managed.start(command, args, env, List(fingerprint))
+        ()
       }
-    }
-  )
+      .tag(RunnerBridge.serverTag)
+      .dependsOn(js.assemble)
+
+  private def viteStopTask: Def.Initialize[Task[Unit]] = Def.task {
+    val logger = streams.value.log
+    val nodeModules = RunnerImports.jsNodeModules.value
+    val projectRoot = RunnerImports.jsNodeProject.value
+    val stateRef = ViteImport.viteProcessInstance.value
+    val managed = new ManagedServer(
+      RunnerBridge.serverNamespace,
+      stateRef,
+      projectRoot,
+      nodeModules,
+      logger
+    )
+    managed.stop()
+  }
+
+  private def registerServerCleanup: Def.Initialize[State => State] = Def.setting {
+    val previous = (Global / onLoad).value
+
+    def exitHook(state: State): State =
+      state.addExitHook {
+        (ThisProject / ViteImport.viteProcessInstance).value.getAndSet(None).foreach { server =>
+          state.log.info(s"Cleaning up ${RunnerBridge.serverNamespace} server on exit")
+          PlatformUtil.processDestroy(Some(server.process), state.log)
+        }
+      }
+
+    previous.compose(exitHook)
+  }
+
+  private def viteFingerprintTask: Def.Initialize[Task[String]] = Def.task {
+    val params = CliParameter.devServerParameters.value.sorted.mkString(" ")
+    val source = (js.assemble / target).value.getAbsolutePath
+    val mode = ViteImport.mode.value.toString
+    val combined = s"$source|$mode|$params"
+    val md = MessageDigest.getInstance("SHA-256")
+    md.digest(combined.getBytes("UTF-8")).take(10).map("%02x".format(_)).mkString
+  }
 
   private def common: List[Setting[?]] = List(
     ViteImport.base := None,
@@ -134,135 +159,37 @@ object DefaultSettings {
     ViteImport.minify := None
   )
 
-  private def viteProcess(command: Option[String], parameters: List[String]): Def.Initialize[Task[java.lang.Process]] =
-    Def.taskDyn {
-      val source = (js.assemble / target).value
-      Def.task(
-        Util.processRun(
-          ViteImport.viteExecutable.value ++ (command.toList ++: parameters),
-          defaultExtraEnv(ViteImport.mode.value, nodeModulesBasePaths.value),
-          source,
-          (ThisProject / ViteImport.vite / streams).value.log
-        )
-      )
+  private def defaultViteExecutable: Def.Initialize[Task[List[String]]] =
+    RunnerToolkit.jsFindExecutable("vite")
+
+  private def splitExecutable(spec: List[String]): (String, List[String]) =
+    spec match {
+      case head :: tail => (head, tail)
+      case Nil          => ("vite", Nil)
     }
-  // Raw process creation used by build; dev server adds fingerprint handling
-  private def viteRawProcess(command: Option[String],
-                             parameters: List[String]): Def.Initialize[Task[java.lang.Process]] =
-    viteProcess(command, parameters)
 
-  private def startServerResolved(exec: List[String],
-                                  parameters: List[String],
-                                  fp: String,
-                                  env: Map[String, String],
-                                  workDir: File,
-                                  logger: sbt.Logger): ServerState = {
-    // Run process but also capture early stderr output for diagnostics
-    val p = Util.processRun(exec ++ parameters, env, workDir, logger)
-    val errStream = p.getErrorStream
-    val ringSize = 4096
-    val ring = new Array[Byte](ringSize)
-    // Track current length of valid bytes in ring without using a mutable var (scalafix DisableSyntax.var)
-    val ringLen = new java.util.concurrent.atomic.AtomicInteger(0)
-    val reader = new Thread(
-      () =>
-        try {
-          val buf = new Array[Byte](512)
-          @annotation.tailrec
-          def loop(currentLen: Int): Unit = {
-            val n = errStream.read(buf)
-            if (n == -1) ()
-            else {
-              val copyLen = math.min(n, buf.length)
-              if (currentLen + copyLen <= ringSize) {
-                System.arraycopy(buf, 0, ring, currentLen, copyLen)
-                ringLen.set(currentLen + copyLen)
-                loop(ringLen.get())
-              } else {
-                val overflow = (currentLen + copyLen) - ringSize
-                // shift existing bytes left to make room
-                System.arraycopy(ring, overflow, ring, 0, ringSize - overflow)
-                // copy new bytes at the end segment that fits
-                System.arraycopy(buf, 0, ring, ringSize - copyLen, copyLen)
-                ringLen.set(ringSize) // buffer now full
-                loop(ringLen.get())
-              }
-            }
-          }
-          loop(0)
-        } catch {
-          case _: Throwable => ()
-        },
-      s"vite-stderr-capture-${System.currentTimeMillis()}"
-    )
-    reader.setDaemon(true)
-    reader.start()
-    // brief delay to catch immediate failures
-    Thread.sleep(400)
-    if (!p.isAlive) {
-      val exit = p.exitValue()
-      val snippet = new String(ring, 0, ringLen.get(), "UTF-8").linesIterator.take(20).mkString("\n")
-      logger.error(
-        s"Vite dev server failed to start (exit=$exit)\n--- stderr (truncated) ---\n$snippet\n--------------------------")
-      sys.error("Vite dev server failed to start (process exited early)")
-    }
-    logger.info(s"Started Vite server (pid=${p.pid})")
-    ServerState(p, fp)
-  }
+  private def appendArgs(base: List[String], extra: List[String]): List[String] = base ++ extra
 
-  private def viteExecutable: Def.Initialize[Task[List[String]]] = Def.task {
-    val bases = nodeModulesBasePaths.value
-    def viteJsPaths: Seq[File] = bases.toSeq.map(_ / "node_modules" / "vite" / "bin" / "vite.js")
-    def binShimPaths: Seq[File] =
-      bases.toSeq.map(_ / "node_modules" / ".bin" / (if (Util.windows) "vite.cmd" else "vite"))
+  private[this] val cachedPathKey =
+    new java.util.concurrent.atomic.AtomicReference[Option[(Set[File], String)]](None)
 
-    // Prefer direct JS entry so we control the node executable, fallback to shim/binary name
-    viteJsPaths.find(_.exists()) match {
-      case Some(script) => List(Util.nodeExecutable, script.getAbsolutePath)
-      case None =>
-        binShimPaths.find(_.exists()) match {
-          case Some(shim) => List(shim.getAbsolutePath)
-          case None       =>
-            // Final fallback: rely on PATH (should be augmented) but warn
-            streams.value.log.warn("vite script not found in node_modules; falling back to 'vite' on PATH")
-            List("vite")
-        }
-    }
-  }
-
-  private def nodeModulesBasePaths = Def.setting(
-    Set((js.assemble / target).value, (ThisProject / baseDirectory).value, (LocalRootProject / baseDirectory).value)
-  )
-
-  // Memoize computed PATH augmentation for the life of the build session to avoid repeated string massaging
-  private[this] val cachedPathKey = new java.util.concurrent.atomic.AtomicReference[Option[(Set[File], String)]](None)
-  private def defaultExtraEnv(
-    mode: ViteImport.Mode,
-    nodeModulesBasePaths: Iterable[File]
-  ): Map[String, String] = {
-    val pathEnv = if (Util.windows) "Path" else "PATH"
-    val baseSet = nodeModulesBasePaths.toSet
+  private def defaultExtraEnv(mode: ViteImport.Mode, nodeModules: Set[File]): Map[String, String] = {
     val pathValue = cachedPathKey.get() match {
-      case Some((prevBases, value)) if prevBases == baseSet => value
-      case _ =>
-        val existing = Option(System.getenv(pathEnv)).getOrElse("")
-        def binDir(base: File) = (base / "node_modules" / ".bin").getAbsolutePath
-        val candidatePaths = baseSet.toList.map(binDir)
-        val dedup = (candidatePaths ++ existing.split(pathSeparator).toList.filter(_.nonEmpty))
-          .foldLeft(List.empty[String])((acc, p) => if (acc.contains(p)) acc else acc :+ p)
-        val joined = dedup.mkString(pathSeparator)
-        cachedPathKey.set(Some(baseSet -> joined))
-        joined
+      case Some((prevBases, value)) if prevBases == nodeModules => value
+      case _                                                    =>
+        val computed = RunnerUtil.augmentPath(nodeModules)
+        cachedPathKey.set(Some(nodeModules -> computed))
+        computed
     }
     val nodeEnv = if (mode == ViteImport.Mode.Production) Map("NODE_ENV" -> "production") else Map.empty[String, String]
-    nodeEnv ++ Map(pathEnv -> pathValue)
+    nodeEnv + (pathEnvKey -> pathValue)
   }
 
   private case class CliParameter[A: CliParameter.Encoder](key: String, value: Option[A]) {
     import CliParameter.FlagStyle
     private val enc = implicitly[CliParameter.Encoder[A]]
     def resolve: List[String] = value match {
-      case None => Nil
+      case None    => Nil
       case Some(v) =>
         CliParameter.flagStyle(key) match {
           case FlagStyle.Presence =>
@@ -361,10 +288,12 @@ object DefaultSettings {
         val outDir = CliParameter(
           "outDir" -> Some((js.js / sbt.Keys.target).value)
         )
+        val minify = CliParameter("minify" -> ViteImport.minify.value)
+        val target = CliParameter("target" -> ViteImport.target.value)
 
         Def.task(
           resolve(
-            common ++ List(assetsDir, assetsInlineLimit, ssr, sourcemap, outDir)
+            common ++ List(assetsDir, assetsInlineLimit, ssr, sourcemap, outDir, minify, target)
           )
         )
 

@@ -15,14 +15,20 @@
  * language governing permissions and limitations under the     *
  * License.                                                     *
  ****************************************************************/
-package africa.shuwari.sbt.vite
+package africa.shuwari.sbt.runner
 
-import sbt.File
+import sbt.*
 
-private[vite] object Messages {
+import africa.shuwari.sbt.js.JSBundlerPlugin
 
-  def viteScriptNotFound(searchPaths: Iterable[File]) =
-    s"Unable to locate vite script. Please ensure vite dependency has been installed using your preferred package manager. Paths searched: ${searchPaths
-        .map(f => s""""${f.getAbsolutePath}""")}"
+/** Auto plugin that exposes [[RunnerImports]] to build users and wires the default settings supplied by
+  * [[RunnerDefaults]]. Downstream plugins such as sbt-vite should depend on this plugin rather than re-implementing the
+  * wiring.
+  */
+object JsRunnerPlugin extends AutoPlugin {
+  val autoImport = RunnerImports
+  override def requires: Plugins = JSBundlerPlugin
+  override def trigger = allRequirements
 
+  override def projectSettings: Seq[Setting[?]] = RunnerDefaults.projectSettings
 }

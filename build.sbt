@@ -17,21 +17,29 @@ inThisBuild(
     semanticdbVersion := scalafixSemanticdb.revision
   )
 )
-
-lazy val `sbt-js` =
+val `sbt-js` =
   project
     .in(file("modules/sbt-js"))
     .enablePlugins(SbtPlugin)
     .settings(publishSettings *)
     .settings(scriptedSettings *)
-    .settings(addSbtPlugin("org.scala-js" % "sbt-scalajs" % "1.19.0"))
+    .settings(addSbtPlugin("org.scala-js" % "sbt-scalajs" % "1.20.1"))
 
-lazy val `sbt-vite` =
+val `sbt-js-runner` =
+  project
+    .in(file("modules/sbt-js-runner"))
+    .enablePlugins(SbtPlugin)
+    .dependsOn(`sbt-js`)
+    .settings(publishSettings *)
+    .settings(scriptedSettings *)
+
+val `sbt-vite` =
   project
     .in(file("modules/sbt-vite"))
     .enablePlugins(SbtPlugin)
-    .settings(publishSettings *)
     .dependsOn(`sbt-js`)
+    .dependsOn(`sbt-js-runner`)
+    .settings(publishSettings *)
 
 lazy val `sbt-js-documentation` =
   project
@@ -50,11 +58,15 @@ lazy val `sbt-js-documentation` =
 lazy val `sbt-js-root` = project
   .in(file("."))
   .enablePlugins(SbtPlugin)
-  .aggregate(`sbt-js`, `sbt-vite`)
   .notPublished
   .shuwariProject
   .apacheLicensed
   .settings(sonatypeProfile)
+  .aggregate(
+    `sbt-js`,
+    `sbt-js-runner`,
+    `sbt-vite`,
+  )
 
 def publishCredentials = credentials := List(
   Credentials(
