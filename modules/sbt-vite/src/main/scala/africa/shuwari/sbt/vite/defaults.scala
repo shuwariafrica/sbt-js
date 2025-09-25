@@ -74,6 +74,9 @@ object DefaultSettings {
         val nodeModules = RunnerImports.jsNodeModules.value
         val projectRoot = RunnerImports.jsNodeProject.value
         val stateRef = ViteImport.viteProcessInstance.value
+        // Note: The startup wait time (750ms) is defined in ManagedServer.startupWaitMillis.
+        // This value was chosen as a balance between reliability and responsiveness for Vite server startup.
+        // If needed, consider making this configurable via a setting.
         val managed = new ManagedServer(
           RunnerBridge.serverNamespace,
           stateRef,

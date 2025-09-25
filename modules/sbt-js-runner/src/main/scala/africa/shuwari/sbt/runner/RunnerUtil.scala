@@ -20,6 +20,9 @@ package africa.shuwari.sbt.runner
 import java.io.File.pathSeparator
 import java.lang.ProcessBuilder.Redirect
 import java.nio.charset.StandardCharsets
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
+import java.util.concurrent.Future
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.locks.ReentrantLock
@@ -164,8 +167,14 @@ object RunnerUtil {
       } finally lock.unlock()
     }
 
-    val reader = new Thread(
-      () =>
+    val executor: ExecutorService = Executors.newSingleThreadExecutor { r =>
+      val t = new Thread(r, s"sbt-js-runner-stderr-${System.currentTimeMillis()}")
+      t.setDaemon(true)
+      t
+    }
+
+    val readerTask: Future[_] = executor.submit(new Runnable {
+      override def run(): Unit =
         try {
           @annotation.tailrec
           def loop(done: Boolean): Unit = {
@@ -206,12 +215,8 @@ object RunnerUtil {
         } catch {
           case _: InterruptedException => ()
           case _: Throwable            => ()
-        },
-      s"sbt-js-runner-stderr-${System.currentTimeMillis()}"
-    )
-
-    reader.setDaemon(true)
-    reader.start()
+        }
+    })
 
     def snapshot(): String = {
       lock.lock()
@@ -234,7 +239,11 @@ object RunnerUtil {
     }
 
     def closeCapture(): Unit =
-      if (running.getAndSet(false)) reader.interrupt()
+      if (running.getAndSet(false)) {
+        readerTask.cancel(true)
+        executor.shutdownNow()
+        executor.awaitTermination(250, TimeUnit.MILLISECONDS); ()
+      }
 
     new ProcessErrorCapture(() => snapshot(), () => closeCapture())
   }
