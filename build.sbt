@@ -65,7 +65,7 @@ lazy val `sbt-js-root` = project
   .aggregate(
     `sbt-js`,
     `sbt-js-runner`,
-    `sbt-vite`,
+    `sbt-vite`
   )
 
 def publishCredentials = credentials := List(
