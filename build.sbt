@@ -23,7 +23,7 @@ val `sbt-js` =
     .enablePlugins(SbtPlugin)
     .settings(publishSettings *)
     .settings(scriptedSettings *)
-    .settings(addSbtPlugin("org.scala-js" % "sbt-scalajs" % "1.21.0"))
+    .settings(addSbtPlugin("org.scala-js" % "sbt-scalajs" % "1.22.0"))
 
 val `sbt-js-runner` =
   project
